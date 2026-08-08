@@ -8,9 +8,9 @@
 export const MOCK_USERS = {
   admin: {
     username: 'admin',
-    name: 'Sarah Connor',
+    name: 'Nishant Narudkar',
     role: 'HR Admin',
-    email: 'sarah.connor@enterprise.com',
+    email: 'nishant.narudkar@enterprise.com',
     department: 'Human Resources'
   },
   employee: {

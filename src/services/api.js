@@ -36,9 +36,9 @@ const INITIAL_DOCUMENTS = [
     uploadDate: '2025-01-15T09:30:00Z',
     tags: ['offer', 'onboarding', 'engineering'],
     size: '1.2 MB',
-    uploader: 'HR Admin (Sarah Connor)',
+    uploader: 'HR Admin (Nishant Narudkar)',
     versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2025-01-15T09:30:00Z', uploader: 'Sarah Connor', size: '1.2 MB', isLatest: true }
+      { id: 'v1', versionId: 'v1.0', uploadDate: '2025-01-15T09:30:00Z', uploader: 'Nishant Narudkar', size: '1.2 MB', isLatest: true }
     ]
   },
   {
@@ -51,7 +51,7 @@ const INITIAL_DOCUMENTS = [
     uploader: 'Legal Team',
     versions: [
       { id: 'v1', versionId: 'v1.0', uploadDate: '2025-01-18T11:00:00Z', uploader: 'System', size: '2.3 MB', isLatest: false },
-      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-01-20T14:15:00Z', uploader: 'Sarah Connor', size: '2.4 MB', isLatest: true }
+      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-01-20T14:15:00Z', uploader: 'Nishant Narudkar', size: '2.4 MB', isLatest: true }
     ]
   },
   {
@@ -85,10 +85,10 @@ const INITIAL_DOCUMENTS = [
     uploadDate: '2025-12-15T10:00:00Z',
     tags: ['appraisal', 'review', 'annual'],
     size: '1.8 MB',
-    uploader: 'HR Admin (Sarah Connor)',
+    uploader: 'HR Admin (Nishant Narudkar)',
     versions: [
       { id: 'v1', versionId: 'v1.0', uploadDate: '2025-12-01T08:30:00Z', uploader: 'John Doe', size: '1.7 MB', isLatest: false },
-      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-12-15T10:00:00Z', uploader: 'Sarah Connor', size: '1.8 MB', isLatest: true }
+      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-12-15T10:00:00Z', uploader: 'Nishant Narudkar', size: '1.8 MB', isLatest: true }
     ]
   },
   {
@@ -102,7 +102,7 @@ const INITIAL_DOCUMENTS = [
     versions: [
       { id: 'v1', versionId: 'v1.0', uploadDate: '2025-02-05T09:00:00Z', uploader: 'System', size: '920 KB', isLatest: false },
       { id: 'v2', versionId: 'v2.0', uploadDate: '2025-02-08T10:15:00Z', uploader: 'System', size: '940 KB', isLatest: false },
-      { id: 'v3', versionId: 'v3.0', uploadDate: '2025-02-10T11:45:00Z', uploader: 'Sarah Connor', size: '950 KB', isLatest: true }
+      { id: 'v3', versionId: 'v3.0', uploadDate: '2025-02-10T11:45:00Z', uploader: 'Nishant Narudkar', size: '950 KB', isLatest: true }
     ]
   }
 ];
