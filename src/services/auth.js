@@ -13,6 +13,13 @@ export const MOCK_USERS = {
     email: 'nishant.narudkar@enterprise.com',
     department: 'Human Resources'
   },
+  manager: {
+    username: 'manager',
+    name: 'Alex Morgan',
+    role: 'Manager',
+    email: 'alex.morgan@enterprise.com',
+    department: 'Engineering'
+  },
   employee: {
     username: 'employee',
     name: 'John Doe',
@@ -49,7 +56,7 @@ export const login = async (username, password) => {
       throw new Error('Password must be at least 6 characters.');
     }
   } else {
-    throw new Error('Invalid username. Use "admin" or "employee" for testing.');
+    throw new Error('Invalid username. Use "admin", "manager", or "employee" for testing.');
   }
 };
 

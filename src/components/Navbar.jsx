@@ -77,7 +77,13 @@ export default function Navbar({ currentUser, toggleSidebar, isSidebarCollapsed 
               </li>
               <li className="px-3 py-2">
                 <span className="text-muted small d-block">Role Privilege</span>
-                <span className={`badge mt-1 ${currentUser.role === 'HR Admin' ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary'}`}>
+                <span className={`badge mt-1 ${
+                  currentUser.role === 'HR Admin'
+                    ? 'bg-danger-subtle text-danger'
+                    : currentUser.role === 'Manager'
+                    ? 'bg-warning-subtle text-warning'
+                    : 'bg-primary-subtle text-primary'
+                }`}>
                   {currentUser.role}
                 </span>
               </li>

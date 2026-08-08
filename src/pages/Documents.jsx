@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getFiles, downloadDocument, deleteDocument } from '../services/api';
 import SearchBar from '../components/SearchBar';
 import FileTable from '../components/FileTable';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import AccessDenied from '../components/AccessDenied';
 
 /**
  * Documents Repository Page.
@@ -10,7 +12,7 @@ import FileTable from '../components/FileTable';
  */
 export default function Documents({ currentUser }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Read initial values from URL query parameters (e.g. from Dashboard click)
   const categoryParam = searchParams.get('category') || '';
   const filterParam = searchParams.get('filter') || '';
@@ -21,6 +23,13 @@ export default function Documents({ currentUser }) {
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [alert, setAlert] = useState(null);
+
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState({ show: false, docId: null, docName: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Forbidden / access denied state
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const documentTypes = ['Offer Letters', 'Payslips', 'Contracts', 'Appraisals'];
 
@@ -34,13 +43,14 @@ export default function Documents({ currentUser }) {
   // Load and filter documents
   const loadDocuments = async () => {
     setIsLoading(true);
+    setAccessDenied(false);
     try {
       const filters = {
         search: searchQuery,
         type: selectedType,
         sortBy: sortBy
       };
-      
+
       let fetchedDocs = await getFiles(filters);
 
       // Handle "recent" URL filter (last 90 days)
@@ -53,7 +63,11 @@ export default function Documents({ currentUser }) {
       setDocuments(fetchedDocs);
     } catch (err) {
       console.error(err);
-      showAlert('Failed to load documents from database.', 'danger');
+      if (err.code === 'FORBIDDEN') {
+        setAccessDenied(true);
+      } else {
+        showAlert('Unable to load documents. Please try again.', 'danger');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -85,30 +99,51 @@ export default function Documents({ currentUser }) {
       const doc = await downloadDocument(fileId);
       showAlert(`Downloading "${doc.name}"...`);
     } catch (err) {
-      showAlert('Failed to download file. Please try again.', 'danger');
-    }
-  };
-
-  // Delete Handler
-  const handleDelete = async (fileId) => {
-    const docToDelete = documents.find(d => d.id === fileId);
-    if (!docToDelete) return;
-
-    const confirmed = window.confirm(
-      `Are you sure you want to permanently delete "${docToDelete.name}"?\n\nThis action cannot be undone and will delete all associated S3 objects and version records.`
-    );
-
-    if (confirmed) {
-      try {
-        await deleteDocument(fileId);
-        showAlert(`Successfully deleted "${docToDelete.name}" from the repository.`, 'success');
-        // Refresh document list
-        loadDocuments();
-      } catch (err) {
-        showAlert(err.message || 'Failed to delete file.', 'danger');
+      if (err.code === 'FORBIDDEN') {
+        showAlert('Access denied. You do not have permission to download this file.', 'danger');
+      } else {
+        showAlert('Download failed. Please try again.', 'danger');
       }
     }
   };
+
+  // Open delete confirmation modal
+  const handleDelete = (fileId) => {
+    const docToDelete = documents.find(d => d.id === fileId);
+    if (!docToDelete) return;
+    setDeleteModal({ show: true, docId: fileId, docName: docToDelete.name });
+  };
+
+  // Execute delete after confirmation
+  const confirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteDocument(deleteModal.docId);
+      showAlert(`Successfully deleted "${deleteModal.docName}" from the repository.`, 'success');
+      setDeleteModal({ show: false, docId: null, docName: '' });
+      loadDocuments();
+    } catch (err) {
+      if (err.code === 'FORBIDDEN') {
+        showAlert('Access denied. You do not have permission to delete this document.', 'danger');
+      } else {
+        showAlert(err.message || 'Unable to delete this document. Please try again.', 'danger');
+      }
+      setDeleteModal({ show: false, docId: null, docName: '' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    if (!isDeleting) {
+      setDeleteModal({ show: false, docId: null, docName: '' });
+    }
+  };
+
+  // Show Access Denied page if 403 was received
+  if (accessDenied) {
+    return <AccessDenied message="You do not have permission to view the document repository." />;
+  }
 
   return (
     <div className="fade-in-page">
@@ -120,25 +155,25 @@ export default function Documents({ currentUser }) {
             Access and manage corporate documents. Filter archives by department tags or categories.
           </p>
         </div>
-        
+
         {/* Banner Alert for URL filters */}
         {(selectedType || filterParam) && (
-          <button 
+          <button
             className="btn btn-sm btn-outline-secondary d-flex align-items-center"
             onClick={clearUrlFilters}
             style={{ borderRadius: '8px' }}
           >
-            <i className="bi bi-x-circle me-1.5"></i>
-            Clear URL Filter ({selectedType || 'Recent Uploads'})
+            <i className="bi bi-x-circle me-1"></i>
+            Clear Filter ({selectedType || 'Recent Uploads'})
           </button>
         )}
       </div>
 
       {/* Floating feedback alert */}
       {alert && (
-        <div 
-          className={`alert alert-${alert.type} alert-dismissible fade show shadow-sm border-0 d-flex align-items-center py-3 px-4 mb-4`} 
-          role="alert" 
+        <div
+          className={`alert alert-${alert.type} alert-dismissible fade show shadow-sm border-0 d-flex align-items-center py-3 px-4 mb-4`}
+          role="alert"
           style={{ borderRadius: '12px', zIndex: 1050 }}
         >
           <i className={`bi ${alert.type === 'danger' ? 'bi-exclamation-triangle-fill text-danger' : 'bi-check-circle-fill text-success'} fs-4 me-3`}></i>
@@ -165,6 +200,15 @@ export default function Documents({ currentUser }) {
         onDelete={handleDelete}
         currentUser={currentUser}
         isLoading={isLoading}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        show={deleteModal.show}
+        docName={deleteModal.docName}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        isDeleting={isDeleting}
       />
     </div>
   );

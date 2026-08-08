@@ -59,6 +59,9 @@ export default function Login() {
     if (userType === 'admin') {
       setUsername('admin');
       setPassword('admin123');
+    } else if (userType === 'manager') {
+      setUsername('manager');
+      setPassword('manager123');
     } else if (userType === 'employee') {
       setUsername('employee');
       setPassword('employee123');
@@ -165,7 +168,7 @@ export default function Login() {
               Developer Demo Accounts:
             </span>
             <div className="row g-2">
-              <div className="col-6">
+              <div className="col-4">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary w-100 py-2 text-truncate"
@@ -176,7 +179,18 @@ export default function Login() {
                   <i className="bi bi-shield-check me-1 text-danger"></i> HR Admin
                 </button>
               </div>
-              <div className="col-6">
+              <div className="col-4">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary w-100 py-2 text-truncate"
+                  onClick={() => prefillCredentials('manager')}
+                  disabled={isLoading}
+                  style={{ borderRadius: '8px', fontSize: '0.8rem' }}
+                >
+                  <i className="bi bi-briefcase me-1 text-warning"></i> Manager
+                </button>
+              </div>
+              <div className="col-4">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary w-100 py-2 text-truncate"

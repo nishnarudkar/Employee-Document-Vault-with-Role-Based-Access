@@ -130,12 +130,13 @@ npm run preview
 
 ## Demo Accounts
 
-The app ships with two pre-configured mock users. **Any password with 6+ characters will work.**
+The app ships with three pre-configured mock users. **Any password with 6+ characters will work.**
 
 | Role | Username | Password | Access Level |
 |---|---|---|---|
 | **HR Admin** | `admin` | any 6+ characters | Full: upload, delete, view all docs |
-| **Employee** | `employee` | any 6+ characters | Read-only: view & download only |
+| **Manager** | `manager` | any 6+ characters | Upload, download, view — no delete |
+| **Employee** | `employee` | any 6+ characters | Upload, download, view — no delete |
 
 > **Note:** No real backend is required. Authentication state is persisted to `localStorage` via a mock JWT token.
 
@@ -143,16 +144,16 @@ The app ships with two pre-configured mock users. **Any password with 6+ charact
 
 ## Role-Based Access Control
 
-| Action | HR Admin | Employee |
-|---|---|---|
-| View documents | ✅ | ✅ |
-| Download documents | ✅ | ✅ |
-| Upload documents | ✅ | ✅ |
-| Delete documents | ✅ | ❌ |
-| View version history | ✅ | ✅ |
-| See admin indicators | ✅ | ❌ |
+| Action | HR Admin | Manager | Employee |
+|---|---|---|---|
+| View documents | ✅ | ✅ | ✅ |
+| Download documents | ✅ | ✅ | ✅ |
+| Upload documents | ✅ | ✅ | ✅ |
+| Delete documents | ✅ | ❌ | ❌ |
+| View version history | ✅ | ✅ | ✅ |
+| See admin indicators | ✅ | ❌ | ❌ |
 
-Role is determined at login and stored in the user session. The UI automatically adjusts buttons, badges, and controls based on the current user's role.
+Role is determined at login and stored in the user session. The UI automatically adjusts buttons, badges, and controls based on the current user's role. Delete is **hidden** (not just disabled) for Manager and Employee.
 
 ---
 

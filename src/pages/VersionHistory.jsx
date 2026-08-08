@@ -37,7 +37,7 @@ export default function VersionHistory() {
         }
       } catch (err) {
         console.error(err);
-        setAlert({ message: 'Failed to load documents list.', type: 'danger' });
+        setAlert({ message: 'Unable to load documents. Please try again.', type: 'danger' });
       } finally {
         setIsLoading(false);
       }
@@ -183,8 +183,21 @@ export default function VersionHistory() {
           {/* Right Column: Version History Log Timeline */}
           <div className="col-12 col-lg-8">
             <div className="card card-premium p-4">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h5 className="fw-bold text-dark mb-0">Version Timeline</h5>
+              <div className="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <h5 className="fw-bold text-dark mb-1">Version Timeline</h5>
+                  {selectedDoc && (
+                    <div className="d-flex align-items-center gap-2">
+                      <i className="bi bi-file-earmark-text text-muted small"></i>
+                      <span className="text-muted small fw-medium text-truncate" style={{ maxWidth: '320px' }} title={selectedDoc.name}>
+                        {selectedDoc.name}
+                      </span>
+                      <span className="badge rounded-pill bg-primary text-white" style={{ fontSize: '0.7rem' }}>
+                        {selectedDoc.versions?.length || 1} version(s)
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {selectedDoc && selectedDoc.versions && selectedDoc.versions.length > 0 ? (
@@ -246,7 +259,10 @@ export default function VersionHistory() {
                   </table>
                 </div>
               ) : (
-                <p className="text-muted py-3 mb-0">No version branches recorded for this document.</p>
+                <div className="text-center py-4">
+                  <i className="bi bi-clock text-muted mb-3" style={{ fontSize: '2.5rem' }}></i>
+                  <p className="text-muted mb-0">No version history available for this document.</p>
+                </div>
               )}
             </div>
           </div>

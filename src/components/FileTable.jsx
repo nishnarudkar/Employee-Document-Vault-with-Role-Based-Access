@@ -82,6 +82,8 @@ export default function FileTable({
                         <i className="bi bi-file-earmark-pdf text-danger"></i>
                       ) : doc.name.endsWith('.docx') || doc.name.endsWith('.doc') ? (
                         <i className="bi bi-file-earmark-word text-primary"></i>
+                      ) : doc.name.endsWith('.xlsx') || doc.name.endsWith('.xls') ? (
+                        <i className="bi bi-file-earmark-excel text-success"></i>
                       ) : (
                         <i className="bi bi-file-earmark-text text-secondary"></i>
                       )}
@@ -145,21 +147,12 @@ export default function FileTable({
                       <span className="d-none d-md-inline">Download</span>
                     </button>
 
-                    {/* Delete Button (Conditional styling/behavior based on Role) */}
-                    {isHrAdmin ? (
+                    {/* Delete Button — only visible to HR Admin */}
+                    {isHrAdmin && (
                       <button
                         className="btn btn-sm btn-outline-danger d-inline-flex align-items-center"
                         onClick={() => onDelete(doc.id)}
                         title="Delete file"
-                      >
-                        <i className="bi bi-trash"></i>
-                      </button>
-                    ) : (
-                      <button
-                        className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center opacity-50"
-                        disabled
-                        title="Deletion restricted to HR Admins only"
-                        style={{ cursor: 'not-allowed' }}
                       >
                         <i className="bi bi-trash"></i>
                       </button>

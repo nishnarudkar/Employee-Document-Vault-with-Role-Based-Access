@@ -27,6 +27,30 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Axios Response Interceptor: Classify HTTP error status codes for frontend handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 403) {
+        const e = new Error('You do not have permission to perform this action.');
+        e.code = 'FORBIDDEN';
+        return Promise.reject(e);
+      } else if (status === 404) {
+        const e = new Error('The requested resource was not found.');
+        e.code = 'NOT_FOUND';
+        return Promise.reject(e);
+      } else if (status >= 500) {
+        const e = new Error('A server error occurred. Please try again later.');
+        e.code = 'SERVER_ERROR';
+        return Promise.reject(e);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Initial Seed Data for Mock Document Vault
 const INITIAL_DOCUMENTS = [
   {

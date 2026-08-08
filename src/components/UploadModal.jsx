@@ -50,14 +50,42 @@ export default function UploadModal({ onUploadSuccess, onCancel, inline = false 
     }
   };
 
-  // Basic validation (e.g. block empty files, size limit 10MB)
+  // File type and size validation
   const validateAndSetFile = (selectedFile) => {
     const MAX_SIZE_MB = 10;
+    const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+    const ALLOWED_MIME_TYPES = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+
+    // Check file size
     if (selectedFile.size > MAX_SIZE_MB * 1024 * 1024) {
-      setError(`File is too large. Max size allowed is ${MAX_SIZE_MB}MB.`);
+      setError(`File size exceeds the ${MAX_SIZE_MB} MB limit. Please upload a smaller file.`);
       setFile(null);
       return;
     }
+
+    // Check file type by extension and MIME type
+    const fileName = selectedFile.name.toLowerCase();
+    const hasValidExtension = ALLOWED_EXTENSIONS.some(ext => fileName.endsWith(ext));
+    const hasValidMime = ALLOWED_MIME_TYPES.includes(selectedFile.type) || selectedFile.type === '';
+
+    if (!hasValidExtension) {
+      setError('Unsupported file type. Please upload PDF, DOC, DOCX, XLS, or XLSX files only.');
+      setFile(null);
+      return;
+    }
+
+    if (selectedFile.size === 0) {
+      setError('The selected file appears to be empty. Please choose a valid document.');
+      setFile(null);
+      return;
+    }
+
     setFile(selectedFile);
   };
 
@@ -79,8 +107,13 @@ export default function UploadModal({ onUploadSuccess, onCancel, inline = false 
   // Handle Upload Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!file) {
       setError('Please select a file to upload.');
+      return;
+    }
+    if (!category) {
+      setError('Please select a document category.');
       return;
     }
 
@@ -137,6 +170,7 @@ export default function UploadModal({ onUploadSuccess, onCancel, inline = false 
           className="d-none"
           onChange={handleFileChange}
           disabled={isUploading}
+          accept=".pdf,.doc,.docx,.xls,.xlsx"
         />
         
         {file ? (
@@ -155,7 +189,7 @@ export default function UploadModal({ onUploadSuccess, onCancel, inline = false 
               or click to browse from local computer
             </p>
             <p className="text-muted" style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-              PDF, Word, or text files up to 10MB
+              Allowed: PDF, DOC, DOCX, XLS, XLSX — max 10 MB
             </p>
           </div>
         )}
