@@ -1,11 +1,11 @@
-// src/services/api.js
+﻿// src/services/api.js
 import axios from 'axios';
 import { getToken } from './auth';
 
-// Configurable API base URL, falling back to environment variable or placeholder
+// Configurable API base URL — read from environment, never hardcoded.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.employeedocvault.internal/v1';
 
-// Create an Axios instance
+// Create an Axios instance pre-configured with the API base URL.
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -13,181 +13,208 @@ const apiClient = axios.create({
   },
 });
 
-// Axios Request Interceptor: Attach bearer token to API requests (Cognito/JWT)
+// ---------------------------------------------------------------------------
+// Request Interceptor
+// Attaches the real Cognito access token to every protected API request.
+// getToken() is async (reads from the Cognito SDK), so the interceptor
+// must await it before the request fires.
+// ---------------------------------------------------------------------------
 apiClient.interceptors.request.use(
-  (config) => {
-    const token = getToken();
+  async (config) => {
+    const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Axios Response Interceptor: Classify HTTP error status codes for frontend handling
+// ---------------------------------------------------------------------------
+// Response Interceptor
+// Maps HTTP status codes to clean, typed errors for the UI.
+// 401 -> clear session and redirect to login.
+// 403 -> permission denied message.
+// 404 -> not found message.
+// 5xx -> generic server error.
+// Network errors -> network error message.
+// ---------------------------------------------------------------------------
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
       const status = error.response.status;
+
+      if (status === 401) {
+        // Session expired or invalid: clear auth state and redirect to login.
+        // Dynamic import avoids a circular dependency at module load time.
+        import('./auth').then(({ logout }) => {
+          logout();
+          window.location.href = '/';
+        });
+        const e = new Error('Your session has expired. Please log in again.');
+        e.code = 'UNAUTHORIZED';
+        return Promise.reject(e);
+      }
+
       if (status === 403) {
         const e = new Error('You do not have permission to perform this action.');
         e.code = 'FORBIDDEN';
         return Promise.reject(e);
-      } else if (status === 404) {
+      }
+
+      if (status === 404) {
         const e = new Error('The requested resource was not found.');
         e.code = 'NOT_FOUND';
         return Promise.reject(e);
-      } else if (status >= 500) {
+      }
+
+      if (status >= 500) {
         const e = new Error('A server error occurred. Please try again later.');
         e.code = 'SERVER_ERROR';
         return Promise.reject(e);
       }
+    } else if (error.request) {
+      // Request sent but no response received (network/CORS/timeout)
+      const e = new Error('A network error occurred. Please check your connection and try again.');
+      e.code = 'NETWORK_ERROR';
+      return Promise.reject(e);
     }
+
     return Promise.reject(error);
   }
 );
 
-// Initial Seed Data for Mock Document Vault
-const INITIAL_DOCUMENTS = [
-  {
-    id: 'doc-1',
-    name: 'Offer_Letter_John_Doe.pdf',
-    type: 'Offer Letters',
-    uploadDate: '2025-01-15T09:30:00Z',
-    tags: ['offer', 'onboarding', 'engineering'],
-    size: '1.2 MB',
-    uploader: 'HR Admin (Nishant Narudkar)',
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2025-01-15T09:30:00Z', uploader: 'Nishant Narudkar', size: '1.2 MB', isLatest: true }
-    ]
-  },
-  {
-    id: 'doc-2',
-    name: 'Employment_Contract_Final.pdf',
-    type: 'Contracts',
-    uploadDate: '2025-01-20T14:15:00Z',
-    tags: ['contract', 'legal', 'employment'],
-    size: '2.4 MB',
-    uploader: 'Legal Team',
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2025-01-18T11:00:00Z', uploader: 'System', size: '2.3 MB', isLatest: false },
-      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-01-20T14:15:00Z', uploader: 'Nishant Narudkar', size: '2.4 MB', isLatest: true }
-    ]
-  },
-  {
-    id: 'doc-3',
-    name: 'Payslip_June_2026.pdf',
-    type: 'Payslips',
-    uploadDate: '2026-06-30T17:00:00Z',
-    tags: ['payslip', 'finance', 'salary'],
-    size: '340 KB',
-    uploader: 'Finance Bot',
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2026-06-30T17:00:00Z', uploader: 'Finance Bot', size: '340 KB', isLatest: true }
-    ]
-  },
-  {
-    id: 'doc-4',
-    name: 'Payslip_July_2026.pdf',
-    type: 'Payslips',
-    uploadDate: '2026-07-31T18:00:00Z',
-    tags: ['payslip', 'finance', 'salary'],
-    size: '342 KB',
-    uploader: 'Finance Bot',
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2026-07-31T18:00:00Z', uploader: 'Finance Bot', size: '342 KB', isLatest: true }
-    ]
-  },
-  {
-    id: 'doc-5',
-    name: 'Performance_Evaluation_2025.pdf',
-    type: 'Appraisals',
-    uploadDate: '2025-12-15T10:00:00Z',
-    tags: ['appraisal', 'review', 'annual'],
-    size: '1.8 MB',
-    uploader: 'HR Admin (Nishant Narudkar)',
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2025-12-01T08:30:00Z', uploader: 'John Doe', size: '1.7 MB', isLatest: false },
-      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-12-15T10:00:00Z', uploader: 'Nishant Narudkar', size: '1.8 MB', isLatest: true }
-    ]
-  },
-  {
-    id: 'doc-6',
-    name: 'Standard_NDA_v3.pdf',
-    type: 'Contracts',
-    uploadDate: '2025-02-10T11:45:00Z',
-    tags: ['nda', 'legal', 'confidentiality'],
-    size: '950 KB',
-    uploader: 'Legal Team',
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: '2025-02-05T09:00:00Z', uploader: 'System', size: '920 KB', isLatest: false },
-      { id: 'v2', versionId: 'v2.0', uploadDate: '2025-02-08T10:15:00Z', uploader: 'System', size: '940 KB', isLatest: false },
-      { id: 'v3', versionId: 'v3.0', uploadDate: '2025-02-10T11:45:00Z', uploader: 'Nishant Narudkar', size: '950 KB', isLatest: true }
-    ]
-  }
-];
-
-// Helper to interact with Simulated DB (localStorage)
-const getStoredDocs = () => {
-  const docs = localStorage.getItem('vault_documents');
-  if (!docs) {
-    localStorage.setItem('vault_documents', JSON.stringify(INITIAL_DOCUMENTS));
-    return INITIAL_DOCUMENTS;
-  }
-  return JSON.parse(docs);
-};
-
-const saveStoredDocs = (docs) => {
-  localStorage.setItem('vault_documents', JSON.stringify(docs));
-};
+// ---------------------------------------------------------------------------
+// Response normalisation
+//
+// The backend field names may differ from the frontend document model.
+// All mapping lives here so no UI component needs to change.
+//
+// Frontend document model:
+//   { id, name, type, uploadDate, tags[], size, uploader, versions[] }
+//
+// Each version entry:
+//   { id, versionId, uploadDate, uploader, size, isLatest }
+// ---------------------------------------------------------------------------
 
 /**
- * Placeholder API Service Methods
+ * Converts a raw byte count or pre-formatted string to a human-readable size.
+ * If the value is already a non-empty string it is returned unchanged.
  */
-
-/**
- * Placeholder for authenticating the login credentials.
- * Utilizes the endpoint configuration to demonstrate HTTP setup.
- */
-export const login = async (username, password) => {
-  // Demo API Call (will fail because backend is not implemented, caught to fall back to mock)
-  try {
-    const response = await apiClient.post('/auth/login', { username, password });
-    return response.data;
-  } catch (err) {
-    console.warn('Axios Mock Login Fallback (No backend active)');
-    // Return standard Axios-like response format structure if needed, or bubble up
-    throw err; 
+function formatSize(raw) {
+  if (typeof raw === 'string' && raw.trim() !== '') return raw;
+  if (typeof raw === 'number') {
+    if (raw >= 1024 * 1024) return `${(raw / (1024 * 1024)).toFixed(1)} MB`;
+    if (raw > 0)            return `${(raw / 1024).toFixed(0)} KB`;
   }
-};
+  return 'Unknown';
+}
 
 /**
- * Retrieves the documents from the repository.
- * Supports searching by name, filtering by type, and sorting.
+ * Normalises a single version entry from the backend.
+ *
+ * @param {object} v     Raw version object.
+ * @param {number} idx   Zero-based index (used for fallback IDs).
+ * @param {number} total Total number of versions for this document.
+ */
+function normalizeVersion(v, idx, total) {
+  const num = idx + 1;
+  return {
+    id:         v.version_id    || v.id         || `v${num}`,
+    versionId:  v.version_label || v.versionId  || `v${num}.0`,
+    uploadDate: v.uploaded_at   || v.uploadDate || v.upload_date || new Date().toISOString(),
+    uploader:   v.uploaded_by   || v.uploader   || 'Unknown',
+    size:       formatSize(v.size || v.file_size || 0),
+    isLatest:   v.is_latest !== undefined ? Boolean(v.is_latest) : (idx === total - 1),
+  };
+}
+
+/**
+ * Normalises a raw backend document record into the shape the frontend expects.
+ * Every field has a safe fallback so the UI never crashes on unexpected shapes.
+ *
+ * @param {object} doc  Raw backend document.
+ * @returns {object}    Normalised document.
+ */
+function normalizeDocument(doc) {
+  const id         = doc.doc_id || doc.document_id || doc.id || doc.file_id || `doc-${Math.random()}`;
+  const name       = doc.file_name || doc.name || doc.filename || 'Unnamed File';
+  const type       = doc.category  || doc.type || doc.document_type || 'Other';
+  const uploadDate = doc.uploaded_at || doc.upload_date || doc.uploadDate || new Date().toISOString();
+  const uploader   = doc.uploaded_by || doc.uploader || doc.owner || 'Unknown';
+  const size       = formatSize(doc.size || doc.file_size || 0);
+
+  // Tags: backend may send a CSV string or an array.
+  let tags = [];
+  if (Array.isArray(doc.tags)) {
+    tags = doc.tags;
+  } else if (typeof doc.tags === 'string' && doc.tags.trim()) {
+    tags = doc.tags.split(',').map(t => t.trim()).filter(Boolean);
+  }
+
+  // Versions: normalise if provided, otherwise synthesise a single v1.0 entry
+  // so VersionHistory always has at least one row.
+  let versions;
+  if (Array.isArray(doc.versions) && doc.versions.length > 0) {
+    versions = doc.versions.map((v, idx) => normalizeVersion(v, idx, doc.versions.length));
+  } else {
+    versions = [{ id: 'v1', versionId: 'v1.0', uploadDate, uploader, size, isLatest: true }];
+  }
+
+  return { id, name, type, uploadDate, tags, size, uploader, versions };
+}
+
+// ---------------------------------------------------------------------------
+// Exported API functions
+// Same signatures as the previous mock so no calling code needs to change.
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches all documents from GET /files and applies client-side filtering,
+ * search, and sorting.
+ *
+ * Client-side operations are used to remain compatible with backends that do
+ * not accept query parameters for search/filter/sort.
+ *
+ * @param {{ search?: string, type?: string, sortBy?: string }} [filters]
+ * @returns {Promise<object[]>}
  */
 export const getFiles = async (filters = {}) => {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 600));
-  
-  let docs = getStoredDocs();
-  const { search = '', type = '', sortBy = 'newest' } = filters;
+  const response = await apiClient.get('/files');
 
-  // Filter by search term
-  if (search.trim()) {
-    const query = search.toLowerCase();
-    docs = docs.filter(doc => doc.name.toLowerCase().includes(query) || doc.tags.some(tag => tag.toLowerCase().includes(query)));
+  // The backend may return a bare array or wrap it in an object.
+  const raw = response.data;
+  let list = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (Array.isArray(raw.documents)) {
+    list = raw.documents;
+  } else if (Array.isArray(raw.files)) {
+    list = raw.files;
+  } else if (Array.isArray(raw.items)) {
+    list = raw.items;
   }
 
-  // Filter by document type
+  let docs = list.map(normalizeDocument);
+
+  const { search = '', type = '', sortBy = 'newest' } = filters;
+
+  // Client-side search (name + tags)
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    docs = docs.filter(doc =>
+      doc.name.toLowerCase().includes(q) ||
+      doc.tags.some(tag => tag.toLowerCase().includes(q))
+    );
+  }
+
+  // Client-side type/category filter
   if (type) {
     docs = docs.filter(doc => doc.type === type);
   }
 
-  // Sort documents
+  // Client-side sort
   if (sortBy === 'newest') {
     docs.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
   } else if (sortBy === 'oldest') {
@@ -202,117 +229,156 @@ export const getFiles = async (filters = {}) => {
 };
 
 /**
- * Simulates uploading a document.
- * Demonstrates the production workflow of getting a pre-signed S3 upload URL.
+ * Uploads a document using the presigned-URL pattern:
+ *   1. POST /upload  -> API Gateway / Lambda returns a presigned S3 PUT URL.
+ *   2. PUT <presignedUrl>  -> browser uploads the binary directly to S3.
+ *
+ * No AWS credentials are ever placed in the frontend.
+ *
+ * @param {File}     fileObj           Browser File object.
+ * @param {string}   type              Document category (e.g. 'Payslips').
+ * @param {string}   tags              Comma-separated tags.
+ * @param {Function} [progressCallback] Called with percentage (0-100).
+ * @returns {Promise<object>}          Normalised document object.
  */
 export const uploadDocument = async (fileObj, type, tags, progressCallback) => {
-  // 1. Simulating fetching S3 Pre-signed URL from API
-  console.log(`[API Client] Requesting S3 presigned URL for file: ${fileObj.name}, Content-type: ${fileObj.type}`);
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  
-  const simulatedPresignedUrl = `https://employee-doc-vault-bucket.s3.amazonaws.com/uploads/${Date.now()}_${fileObj.name}`;
-  console.log(`[API Client] Received S3 Presigned URL: ${simulatedPresignedUrl}`);
-
-  // 2. Simulating direct upload to S3 with progress monitoring
-  console.log(`[API Client] PUT upload request to S3...`);
-  for (let pct = 0; pct <= 100; pct += 10) {
-    if (progressCallback) progressCallback(pct);
-    await new Promise((resolve) => setTimeout(resolve, 120)); // Slow upload progress simulation
-  }
-
-  // 3. Registering the successfully uploaded S3 file reference inside our document DB
-  const newId = `doc-${Date.now()}`;
-  const userStr = localStorage.getItem('vault_user');
-  const user = userStr ? JSON.parse(userStr) : { name: 'Anonymous User' };
-  
   const parsedTags = tags
-    ? tags.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0)
+    ? tags.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0)
     : [];
 
-  const sizeStr = fileObj.size > 1024 * 1024
+  // Step 1: Request a presigned PUT URL from our API
+  if (progressCallback) progressCallback(5);
+
+  const metaPayload = {
+    file_name:  fileObj.name,
+    file_type:  fileObj.type || 'application/octet-stream',
+    category:   type,
+    tags:       parsedTags,
+    file_size:  fileObj.size,
+  };
+
+  const metaResponse = await apiClient.post('/upload', metaPayload);
+  const responseData  = metaResponse.data;
+
+  const presignedUrl =
+    responseData.presigned_url ||
+    responseData.upload_url    ||
+    responseData.url           ||
+    responseData.presignedUrl;
+
+  if (!presignedUrl) {
+    throw new Error('The server did not return an upload URL. Please try again.');
+  }
+
+  if (progressCallback) progressCallback(15);
+
+  // Step 2: PUT the file binary directly to S3 via the presigned URL.
+  // Use a plain axios instance (NOT apiClient) so the Cognito Authorization
+  // header is NOT sent to S3 — S3 presigned URLs authenticate via embedded
+  // query-string parameters and reject extra auth headers.
+  await axios.put(presignedUrl, fileObj, {
+    headers: {
+      'Content-Type': fileObj.type || 'application/octet-stream',
+    },
+    onUploadProgress: (evt) => {
+      if (evt.total && progressCallback) {
+        // Map S3 upload progress to the 15-95 % range
+        const pct = Math.round((evt.loaded / evt.total) * 80) + 15;
+        progressCallback(Math.min(pct, 95));
+      }
+    },
+  });
+
+  if (progressCallback) progressCallback(100);
+
+  // Step 3: Return a normalised document object.
+  // If the backend included the full document record in its response, use it.
+  const backendDoc = responseData.document || responseData.file || responseData.item;
+  if (backendDoc) {
+    return normalizeDocument(backendDoc);
+  }
+
+  // Synthesise a minimal document from local knowledge so the Upload page
+  // success banner can display useful information.
+  const sizeStr = fileObj.size >= 1024 * 1024
     ? `${(fileObj.size / (1024 * 1024)).toFixed(1)} MB`
     : `${(fileObj.size / 1024).toFixed(0)} KB`;
 
-  const newDoc = {
-    id: newId,
-    name: fileObj.name,
-    type: type,
+  const docId =
+    responseData.doc_id       ||
+    responseData.document_id  ||
+    responseData.file_id      ||
+    responseData.id           ||
+    `doc-${Date.now()}`;
+
+  const userStr = localStorage.getItem('vault_user');
+  const user    = userStr ? JSON.parse(userStr) : {};
+
+  return {
+    id:         docId,
+    name:       fileObj.name,
+    type,
     uploadDate: new Date().toISOString(),
-    tags: parsedTags,
-    size: sizeStr,
-    uploader: user.name,
-    s3Url: simulatedPresignedUrl,
-    versions: [
-      { id: 'v1', versionId: 'v1.0', uploadDate: new Date().toISOString(), uploader: user.name, size: sizeStr, isLatest: true }
-    ]
-  };
-
-  const docs = getStoredDocs();
-  
-  // Check if a file with this name already exists. If yes, add a new version instead!
-  const existingDocIndex = docs.findIndex(d => d.name === fileObj.name && d.type === type);
-  if (existingDocIndex !== -1) {
-    const existing = docs[existingDocIndex];
-    // Update existing document versions
-    const nextVerNum = existing.versions.length + 1;
-    const newVer = {
-      id: `v${nextVerNum}`,
-      versionId: `v${nextVerNum}.0`,
+    tags:       parsedTags,
+    size:       sizeStr,
+    uploader:   user.name || user.username || 'Unknown',
+    versions: [{
+      id:        'v1',
+      versionId: 'v1.0',
       uploadDate: new Date().toISOString(),
-      uploader: user.name,
-      size: sizeStr,
-      isLatest: true
-    };
-    
-    // Mark previous versions as false
-    existing.versions = existing.versions.map(v => ({ ...v, isLatest: false })).concat(newVer);
-    existing.uploadDate = new Date().toISOString();
-    existing.uploader = user.name;
-    existing.size = sizeStr;
-    existing.tags = [...new Set([...existing.tags, ...parsedTags])];
-    
-    docs[existingDocIndex] = existing;
-  } else {
-    docs.unshift(newDoc);
-  }
-
-  saveStoredDocs(docs);
-  return existingDocIndex !== -1 ? docs[existingDocIndex] : newDoc;
+      uploader:   user.name || user.username || 'Unknown',
+      size:       sizeStr,
+      isLatest:   true,
+    }],
+  };
 };
 
 /**
- * Simulates downloading a document by opening/simulating file retrieval.
+ * Retrieves a presigned S3 GET URL from GET /download/{doc_id} and triggers
+ * a browser file download. The presigned URL is used immediately and never stored.
+ *
+ * @param {string} fileId  The document primary key.
+ * @returns {Promise<{ name: string }>}  Object with name for the caller's success alert.
  */
 export const downloadDocument = async (fileId) => {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const docs = getStoredDocs();
-  const doc = docs.find(d => d.id === fileId);
-  if (!doc) throw new Error('File not found');
+  const response = await apiClient.get(`/download/${fileId}`);
+  const data = response.data;
 
-  // Trigger browser download by creating a fake text file representing the vault download
-  const blob = new Blob([`Employee Document Vault\nDocument Name: ${doc.name}\nType: ${doc.type}\nUploaded By: ${doc.uploader}\nDate: ${doc.uploadDate}`], { type: 'text/plain' });
-  const url = window.URL.createObjectURL(blob);
+  const presignedUrl =
+    data.presigned_url ||
+    data.download_url  ||
+    data.url           ||
+    data.presignedUrl;
+
+  if (!presignedUrl) {
+    throw new Error('The server did not return a download URL. Please try again.');
+  }
+
+  const fileName = data.file_name || data.name || data.filename || fileId;
+
+  // Trigger download via a hidden anchor without navigating away.
   const a = document.createElement('a');
   a.style.display = 'none';
-  a.href = url;
-  a.download = doc.name.endsWith('.pdf') ? doc.name : `${doc.name}.txt`;
+  a.href     = presignedUrl;
+  a.download = fileName;
+  a.target   = '_blank';
+  a.rel      = 'noopener noreferrer';
   document.body.appendChild(a);
   a.click();
-  window.URL.revokeObjectURL(url);
-  return doc;
+  document.body.removeChild(a);
+
+  return { name: fileName };
 };
 
 /**
- * Simulates deleting a document from the vault.
+ * Deletes a document via DELETE /files/{doc_id}.
+ * The backend handles all persistence-layer deletion logic.
+ *
+ * @param {string} fileId  The document primary key.
+ * @returns {Promise<true>}
  */
 export const deleteDocument = async (fileId) => {
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  const docs = getStoredDocs();
-  const filtered = docs.filter(d => d.id !== fileId);
-  if (docs.length === filtered.length) {
-    throw new Error('File not found');
-  }
-  saveStoredDocs(filtered);
+  await apiClient.delete(`/files/${fileId}`);
   return true;
 };
 

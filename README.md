@@ -1,6 +1,6 @@
 # 🗄️ Employee Document Vault
 
-> A secure, role-based employee document management system built with React + Vite. Designed to simulate an enterprise-grade HR document repository with AWS S3-style upload architecture, version control, and multi-role access control.
+> A secure, role-based employee document management system built with **React 19 + Vite 8**, integrated directly with **Amazon Cognito** for role-based authentication and **AWS API Gateway / Lambda / S3** for secure document storage and presigned URL file transfers.
 
 ---
 
@@ -9,28 +9,26 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
+- [Architecture & Data Flow](#architecture--data-flow)
+- [AWS & Cognito Integration](#aws--cognito-integration)
+- [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
-- [Demo Accounts](#demo-accounts)
-- [Role-Based Access Control](#role-based-access-control)
-- [Pages & Components](#pages--components)
-- [Services & API Layer](#services--api-layer)
-- [Document Categories](#document-categories)
-- [Architecture Notes](#architecture-notes)
 - [Environment Variables](#environment-variables)
+- [Deployment](#deployment)
 - [Scripts](#scripts)
 
 ---
 
 ## Overview
 
-The **Employee Document Vault** is a frontend-only React application that simulates a real-world HR document management system. It demonstrates:
+The **Employee Document Vault** is an enterprise-grade web application designed for HR document management. It features:
 
-- **Role-based access control (RBAC)** with HR Admin and Employee roles
-- **Document versioning** — re-uploading a file with the same name creates a new version
-- **Simulated AWS S3 presigned URL upload flow** — a realistic production-style upload pipeline
-- **Persistent local storage** as a mock database (no backend required)
-- **Responsive enterprise UI** built on Bootstrap 5 with custom theming
+- **Real Amazon Cognito Authentication** using SRP (Secure Remote Password) flows and JWT tokens.
+- **Group-to-Role Mapping** (`HR_Admin` → HR Admin, `Manager` → Manager, `Employee` → Employee) derived directly from Cognito ID token claims.
+- **Presigned S3 Upload Pipeline** — files are uploaded directly from the browser to AWS S3 using temporary presigned PUT URLs provided by the API Gateway backend.
+- **Secure File Downloads** — temporary presigned S3 GET URLs ensure raw S3 bucket objects remain private.
+- **Responsive Enterprise UI** built with Bootstrap 5.3 and custom CSS styling.
 
 ---
 
@@ -38,14 +36,14 @@ The **Employee Document Vault** is a frontend-only React application that simula
 
 | Feature | Description |
 |---|---|
-| 🔐 **Authentication** | Mock login system with JWT-style token stored in `localStorage` |
-| 👥 **Role-Based Access** | HR Admin (full access) vs. Employee (read-only) |
-| 📂 **Document Vault** | Browse, search, filter, sort, download, and delete documents |
-| 📤 **File Upload** | Drag-and-drop or file picker with animated upload progress |
-| 🕓 **Version History** | Track all versions of a document with uploader and timestamp |
-| 🔍 **Search & Filter** | Filter by name, type, tags, and sort by date or category |
-| 📊 **Dashboard** | Live stats for total documents, categories, and recent uploads |
-| 📱 **Responsive Layout** | Collapsible sidebar + top navbar, works on mobile and desktop |
+| 🔐 **Cognito Authentication** | Real Amazon Cognito User Pool login with SRP, session management, and `NEW_PASSWORD_REQUIRED` first-login challenge handling. |
+| 👥 **Role-Based Access** | HR Admin (full control: view, upload, delete), Manager & Employee (view, download, upload). |
+| 📂 **Document Repository** | Search by filename/tags, filter by department category, and sort by date or name. |
+| 📤 **Presigned S3 Uploads** | Drag-and-drop file upload with animated progress tracking via presigned S3 PUT URLs. |
+| 📥 **Presigned S3 Downloads** | Secure, temporary presigned GET URLs for browser downloads. |
+| 🕓 **Version History** | Document revision tracking with uploader audit logs. |
+| 📊 **Analytics Dashboard** | Overview metrics for total documents, category breakdown, and recent upload activity. |
+| 📱 **Responsive Design** | Modern sidebar navigation drawer, clean top navbar, and mobile-friendly layouts. |
 
 ---
 
@@ -53,12 +51,71 @@ The **Employee Document Vault** is a frontend-only React application that simula
 
 | Layer | Technology |
 |---|---|
-| **Framework** | [React 19](https://react.dev/) + [Vite 8](https://vite.dev/) |
+| **Frontend Framework** | [React 19](https://react.dev/) + [Vite 8](https://vite.dev/) |
 | **Routing** | [React Router DOM v7](https://reactrouter.com/) |
-| **HTTP Client** | [Axios](https://axios-http.com/) (pre-configured with auth interceptors) |
+| **Authentication SDK** | [Amazon Cognito Identity JS](https://www.npmjs.com/package/amazon-cognito-identity-js) |
+| **HTTP Client** | [Axios](https://axios-http.com/) (configured with async Cognito token interceptors) |
 | **UI / Styling** | [Bootstrap 5.3](https://getbootstrap.com/) + [Bootstrap Icons](https://icons.getbootstrap.com/) |
-| **Storage (Mock DB)** | Browser `localStorage` |
-| **Linter** | [OxLint](https://oxc.rs/docs/guide/usage/linter.html) |
+| **Build Tool** | [Vite](https://vite.dev/) |
+
+---
+
+## Architecture & Data Flow
+
+```
+┌─────────────────┐       1. SRP Authentication       ┌───────────────────────┐
+│                 ├──────────────────────────────────►│  Amazon Cognito       │
+│                 │◄──────────────────────────────────┤  User Pool            │
+│                 │       2. JWT Tokens (ID & Access) └───────────────────────┘
+│  React 19 +     │
+│  Vite Frontend  │       3. API Requests (Bearer Token) ┌─────────────────────┐
+│  (SPA)          ├─────────────────────────────────────►│  AWS API Gateway    │
+│                 │◄─────────────────────────────────────┤  & Lambda Backend   │
+│                 │       4. Presigned S3 Upload/Download│                     │
+│                 │          URLs                        └──────────┬──────────┘
+│                 │                                                 │
+│                 │       5. Direct Binary Upload / Download         │
+│                 ├─────────────────────────────────────────────────┼──────────┐
+│                 │◄────────────────────────────────────────────────┘          │
+└────────┬────────┘                                                            │
+         │                                                                     ▼
+         │                                                         ┌───────────────────┐
+         └────────────────────────────────────────────────────────►│  Amazon S3 Bucket │
+                                                                   │  Document Vault   │
+                                                                   └───────────────────┘
+```
+
+---
+
+## AWS & Cognito Integration
+
+### Authentication (`src/services/auth.js`)
+- Authenticates against Amazon Cognito User Pool (`us-east-1_Reu8cPGD4` / `us-east-1_gxawgu`).
+- Automatically handles `NEW_PASSWORD_REQUIRED` challenge if a user must set a new password on first login.
+- Extracts `cognito:groups` from the decoded ID token payload to determine application roles.
+- `getToken()` automatically refreshes tokens near expiry via the Cognito SDK.
+
+### API Layer (`src/services/api.js`)
+- Axios request interceptor attaches `Authorization: Bearer <Cognito_Access_Token>` to all outgoing backend calls.
+- `getFiles(filters)` — Fetches document metadata from `GET /files`.
+- `uploadDocument(file, category, tags)` — Requests presigned PUT URL from `POST /upload`, then streams binary directly to S3 via `axios.put(presignedUrl, file)`.
+- `downloadDocument(fileId)` — Retrieves presigned GET URL from `GET /download/{fileId}` and triggers browser download.
+- `deleteDocument(fileId)` — Triggers soft/hard deletion via `DELETE /files/{fileId}`.
+- Auto-handles `401 Unauthorized` responses by clearing local session and redirecting to the login screen.
+
+---
+
+## Role-Based Access Control (RBAC)
+
+Cognito User Pool groups map directly to frontend permissions:
+
+| Cognito Group | Application Role | View | Download | Upload | Delete |
+|---|---|:---:|:---:|:---:|:---:|
+| `HR_Admin` | **HR Admin** | ✅ | ✅ | ✅ | ✅ |
+| `Manager` | **Manager** | ✅ | ✅ | ✅ | ❌ |
+| `Employee` | **Employee** | ✅ | ✅ | ✅ | ❌ |
+
+> **Note:** UI controls (such as delete buttons) are hidden for unauthorized roles. Backend API Gateway & Lambda functions enforce server-side security authorization.
 
 ---
 
@@ -68,30 +125,33 @@ The **Employee Document Vault** is a frontend-only React application that simula
 Employee_Document_Vault_with_Role_based_Access/
 ├── public/                     # Static assets
 ├── src/
-│   ├── assets/                 # Images, icons
+│   ├── assets/                 # Brand assets & custom CSS
 │   ├── components/             # Reusable UI components
-│   │   ├── DocumentCard.jsx    # Stat metric card for the Dashboard
-│   │   ├── FileTable.jsx       # Documents list table with actions
-│   │   ├── Navbar.jsx          # Top navigation bar
-│   │   ├── SearchBar.jsx       # Search + filter control bar
-│   │   ├── Sidebar.jsx         # Collapsible left navigation drawer
-│   │   └── UploadModal.jsx     # Upload form with drag-and-drop & progress
-│   ├── pages/                  # Route-level page components
-│   │   ├── Dashboard.jsx       # Home dashboard with metrics & recent activity
-│   │   ├── Documents.jsx       # Full document repository listing
-│   │   ├── Login.jsx           # Authentication login screen
-│   │   ├── Upload.jsx          # File upload page with policy guidelines
-│   │   └── VersionHistory.jsx  # Per-document version timeline
+│   │   ├── AccessDenied.jsx    # 403 Forbidden page view
+│   │   ├── DeleteConfirmModal.jsx # Deletion confirmation dialog
+│   │   ├── DocumentCard.jsx    # Metric card widget
+│   │   ├── FileTable.jsx       # Document repository table with role checks
+│   │   ├── Navbar.jsx          # Header navbar with user profile & role badge
+│   │   ├── SearchBar.jsx       # Filter, search, and sort control bar
+│   │   ├── Sidebar.jsx         # Navigation drawer
+│   │   └── UploadModal.jsx     # Upload form with drag-and-drop & progress bar
+│   ├── pages/                  # Top-level view routes
+│   │   ├── Dashboard.jsx       # Main dashboard with statistics & activity
+│   │   ├── Documents.jsx       # Document vault listing page
+│   │   ├── Login.jsx           # Cognito authentication & password-reset form
+│   │   ├── Upload.jsx          # File upload page with vault policy guide
+│   │   └── VersionHistory.jsx  # Document revision audit log
 │   ├── services/
-│   │   ├── api.js              # Mock API layer (get, upload, delete, download)
-│   │   └── auth.js             # Auth helpers (login, logout, token, getCurrentUser)
-│   ├── App.jsx                 # Root app + routing + protected layout
-│   ├── App.css                 # App-level styles
-│   ├── index.css               # Global CSS design system (tokens, utilities)
-│   └── main.jsx                # React entry point
+│   │   ├── api.js              # Axios API service (Cognito interceptor + S3 presigned flow)
+│   │   └── auth.js             # Amazon Cognito authentication SDK integration
+│   ├── App.jsx                 # Main layout, router, and protected routes
+│   ├── App.css                 # Application-specific styles
+│   ├── index.css               # Global theme design system
+│   └── main.jsx                # Application entry point
+├── .env                        # Production AWS environment variables
 ├── index.html
 ├── package.json
-└── vite.config.js
+└── vite.config.js              # Vite configuration (with globalThis polyfill)
 ```
 
 ---
@@ -100,162 +160,65 @@ Employee_Document_Vault_with_Role_based_Access/
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or newer
-- npm (included with Node.js)
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
 
-### Installation & Run
+### Installation
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url>
-cd Employee_Document_Vault_with_Role_based_Access
+git clone https://github.com/nishnarudkar/Employee-Document-Vault-with-Role-Based-Access.git
+cd Employee-Document-Vault-with-Role-Based-Access
 
 # 2. Install dependencies
 npm install
 
-# 3. Start the development server
+# 3. Configure environment variables
+# Ensure .env is present in the root directory (see section below)
+
+# 4. Start local development server
 npm run dev
 ```
 
-The app will be available at **http://localhost:5173** (or the next available port).
-
-### Build for Production
-
-```bash
-npm run build
-npm run preview
-```
-
----
-
-## Demo Accounts
-
-The app ships with three pre-configured mock users. **Any password with 6+ characters will work.**
-
-| Role | Username | Password | Access Level |
-|---|---|---|---|
-| **HR Admin** | `admin` | any 6+ characters | Full: upload, delete, view all docs |
-| **Manager** | `manager` | any 6+ characters | Upload, download, view — no delete |
-| **Employee** | `employee` | any 6+ characters | Upload, download, view — no delete |
-
-> **Note:** No real backend is required. Authentication state is persisted to `localStorage` via a mock JWT token.
-
----
-
-## Role-Based Access Control
-
-| Action | HR Admin | Manager | Employee |
-|---|---|---|---|
-| View documents | ✅ | ✅ | ✅ |
-| Download documents | ✅ | ✅ | ✅ |
-| Upload documents | ✅ | ✅ | ✅ |
-| Delete documents | ✅ | ❌ | ❌ |
-| View version history | ✅ | ✅ | ✅ |
-| See admin indicators | ✅ | ❌ | ❌ |
-
-Role is determined at login and stored in the user session. The UI automatically adjusts buttons, badges, and controls based on the current user's role. Delete is **hidden** (not just disabled) for Manager and Employee.
-
----
-
-## Pages & Components
-
-### Pages
-
-| Page | Route | Description |
-|---|---|---|
-| **Login** | `/` | Authentication screen with mock credentials |
-| **Dashboard** | `/dashboard` | Metrics overview, category folders, recent activity feed |
-| **Documents** | `/documents` | Full vault with search, filter, sort, download, delete |
-| **Upload** | `/upload` | Upload form with drag-and-drop support and upload policy |
-| **Version History** | `/version-history` | Timeline of all file versions per document |
-
-### Key Components
-
-| Component | Description |
-|---|---|
-| `Navbar` | Top bar with user info, role badge, and sidebar toggle |
-| `Sidebar` | Collapsible left drawer with navigation links |
-| `FileTable` | Sortable document table with per-row action buttons |
-| `SearchBar` | Search input + type filter + sort dropdown |
-| `UploadModal` | Full upload form with drag-and-drop, progress bar, and tag input |
-| `DocumentCard` | Metric card used in the dashboard stats grid |
-
----
-
-## Services & API Layer
-
-### `src/services/auth.js`
-
-Handles all authentication logic:
-
-- `login(username, password)` — validates credentials and stores a mock JWT + user profile in `localStorage`
-- `logout()` — clears the session
-- `isAuthenticated()` — checks if a token exists
-- `getCurrentUser()` — retrieves the current user object
-- `getToken()` — retrieves the raw token string
-
-### `src/services/api.js`
-
-A simulated REST API layer using Axios with an auth interceptor:
-
-- `getFiles(filters)` — fetches documents from `localStorage` with search, type filter, and sort support
-- `uploadDocument(file, type, tags, progressCallback)` — simulates a presigned S3 upload with progress events
-- `downloadDocument(fileId)` — creates and triggers a browser download
-- `deleteDocument(fileId)` — removes the document from the local store
-
-> The Axios client is pre-configured to attach `Authorization: Bearer <token>` headers on every request, ready to be pointed at a real backend API.
-
----
-
-## Document Categories
-
-The vault organizes documents into **4 categories**:
-
-| Category | Icon | Description |
-|---|---|---|
-| **Offer Letters** | 📄 | Employment offers issued to candidates |
-| **Payslips** | 💰 | Monthly salary statements |
-| **Contracts** | 📋 | NDAs, employment agreements |
-| **Appraisals** | 🏆 | Annual performance evaluation reports |
-
----
-
-## Architecture Notes
-
-### Simulated S3 Upload Flow
-
-The upload process mirrors a real AWS S3 presigned URL architecture:
-
-1. **Request presigned URL** — The client calls the backend API to get a temporary upload URL
-2. **Direct S3 upload** — The file is PUT directly from the browser to S3 (bypassing the server)
-3. **Register in DB** — The backend is notified of the successful upload and registers the S3 reference
-
-In this demo, steps 1 and 2 are simulated with a progress animation, and step 3 writes to `localStorage`.
-
-### Version Control
-
-When a file with the **same name and category** is uploaded again, the system automatically:
-- Increments the version number (`v1.0` → `v2.0`)
-- Marks the previous version as `isLatest: false`
-- Merges tags from both versions
-- Updates the document's metadata to reflect the latest upload
-
-### Multi-Tab Support
-
-The app listens to the browser's `storage` event to keep user session state synchronized across multiple open browser tabs.
+The application will be accessible at **http://localhost:5173**.
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file in the project root to configure the API endpoint:
+Create a `.env` file in the project root:
 
 ```env
-# Backend API base URL (optional - app works without a backend in mock mode)
-VITE_API_BASE_URL=https://your-api-endpoint.com/v1
+VITE_AWS_REGION=us-east-1
+VITE_COGNITO_USER_POOL_ID=us-east-1_Reu8cPGD4
+VITE_COGNITO_CLIENT_ID=7ddjph81odtdodol22nbe6qvwh
+VITE_API_BASE_URL=https://c9d8wcytpj.execute-api.us-east-1.amazonaws.com/prod
 ```
 
-If `VITE_API_BASE_URL` is not set, the Axios client defaults to a placeholder URL. The app gracefully falls back to the local mock layer if the backend is unreachable.
+> **Security Note:** Never commit secret keys or AWS credentials to the frontend repository. All S3 file transfers use temporary presigned URLs issued server-side.
+
+---
+
+## Deployment
+
+### Production Build
+
+```bash
+npm run build
+```
+
+This compiles the static assets into the `dist/` directory.
+
+### Deploying to Amazon S3 & CloudFront
+
+Upload the contents of `dist/` to your target frontend S3 bucket:
+
+```bash
+aws s3 sync dist/ s3://employee-document-vault-frontend --region us-east-1
+```
+
+**Single-Page Application (SPA) Routing Note:**
+Because this app uses client-side routing (`react-router-dom`), ensure **Static Website Hosting** on S3 has both Index Document and Error Document set to `index.html` (or configure CloudFront custom error responses mapping `404` → `/index.html` with HTTP 200).
 
 ---
 
@@ -263,26 +226,11 @@ If `VITE_API_BASE_URL` is not set, the Axios client defaults to a placeholder UR
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start local development server |
-| `npm run build` | Build production bundle to `dist/` |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run OxLint static analysis |
+| `npm run dev` | Starts Vite local development server |
+| `npm run build` | Compiles optimized production bundle in `dist/` |
+| `npm run preview` | Previews production build locally |
+| `npm run lint` | Runs code linter |
 
 ---
 
-*Built as a frontend demonstration of a production-ready HR Document Management System architecture.*
-
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+*Enterprise HR Document Management System — React + Amazon Cognito + AWS API Gateway + S3*
