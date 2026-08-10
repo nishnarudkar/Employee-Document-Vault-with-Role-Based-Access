@@ -107,15 +107,15 @@ The **Employee Document Vault** is an enterprise-grade web application designed 
 
 ## Role-Based Access Control (RBAC)
 
-Cognito User Pool groups map directly to frontend permissions:
+Cognito User Pool groups map directly to frontend application roles and data access scopes:
 
-| Cognito Group | Application Role | View | Download | Upload | Delete |
-|---|---|:---:|:---:|:---:|:---:|
-| `HR_Admin` | **HR Admin** | ✅ | ✅ | ✅ | ✅ |
-| `Manager` | **Manager** | ✅ | ✅ | ✅ | ❌ |
-| `Employee` | **Employee** | ✅ | ✅ | ✅ | ❌ |
+| Cognito Group | Application Role | View | Download | Upload | Delete | Data Scope |
+|---|---|:---:|:---:|:---:|:---:|---|
+| `Employee` | **Employee** | ✅ | ✅ | ✅ | ❌ | Own documents |
+| `Manager` | **Manager** | ✅ | ✅ | ✅ | ❌ | Team documents |
+| `HR_Admin` | **HR Admin** | ✅ | ✅ | ✅ | ✅ | All documents |
 
-> **Note:** UI controls (such as delete buttons) are hidden for unauthorized roles. Backend API Gateway & Lambda functions enforce server-side security authorization.
+> **Note:** Frontend UI controls (such as delete buttons) are hidden based on the user's role. Server-side backend services (API Gateway, Lambda, and S3 IAM policies) enforce data scoping and authorization per prefix/department.
 
 ---
 
