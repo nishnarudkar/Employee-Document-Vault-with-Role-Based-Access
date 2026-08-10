@@ -90,7 +90,7 @@ The **Employee Document Vault** is an enterprise-grade web application designed 
 ## AWS & Cognito Integration
 
 ### Authentication (`src/services/auth.js`)
-- Authenticates against Amazon Cognito User Pool (`us-east-1_Reu8cPGD4` / `us-east-1_gxawgu`).
+- Authenticates against Amazon Cognito User Pool (configured via environment variables).
 - Automatically handles `NEW_PASSWORD_REQUIRED` challenge if a user must set a new password on first login.
 - Extracts `cognito:groups` from the decoded ID token payload to determine application roles.
 - `getToken()` automatically refreshes tokens near expiry via the Cognito SDK.
@@ -190,12 +190,12 @@ Create a `.env` file in the project root:
 
 ```env
 VITE_AWS_REGION=us-east-1
-VITE_COGNITO_USER_POOL_ID=us-east-1_Reu8cPGD4
-VITE_COGNITO_CLIENT_ID=7ddjph81odtdodol22nbe6qvwh
-VITE_API_BASE_URL=https://c9d8wcytpj.execute-api.us-east-1.amazonaws.com/prod
+VITE_COGNITO_USER_POOL_ID=your-user-pool-id
+VITE_COGNITO_CLIENT_ID=your-cognito-client-id
+VITE_API_BASE_URL=https://your-api-gateway-url.execute-api.us-east-1.amazonaws.com/prod
 ```
 
-> **Security Note:** Never commit secret keys or AWS credentials to the frontend repository. All S3 file transfers use temporary presigned URLs issued server-side.
+> **Security Note:** Never commit `.env` or sensitive credentials to your public repository. All S3 file transfers use temporary presigned URLs issued server-side.
 
 ---
 
@@ -214,7 +214,7 @@ This compiles the static assets into the `dist/` directory.
 Upload the contents of `dist/` to your target frontend S3 bucket:
 
 ```bash
-aws s3 sync dist/ s3://employee-document-vault-frontend --region us-east-1
+aws s3 sync dist/ s3://your-frontend-s3-bucket --region us-east-1
 ```
 
 **Single-Page Application (SPA) Routing Note:**
