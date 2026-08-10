@@ -302,7 +302,8 @@ export const getToken = () =>
         resolve(null);
         return;
       }
-      resolve(session.getAccessToken().getJwtToken());
+      // API Gateway Cognito Authorizer requires the ID token JWT
+      resolve(session.getIdToken().getJwtToken());
     });
   });
 
