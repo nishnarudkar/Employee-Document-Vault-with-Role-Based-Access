@@ -1,4 +1,4 @@
-﻿// src/services/api.js
+// src/services/api.js
 import axios from 'axios';
 import { getToken } from './auth';
 
@@ -249,12 +249,18 @@ export const uploadDocument = async (fileObj, type, tags, progressCallback) => {
   // Step 1: Request a presigned PUT URL from our API
   if (progressCallback) progressCallback(5);
 
+  const userStr = localStorage.getItem('vault_user');
+  const user    = userStr ? JSON.parse(userStr) : {};
+
   const metaPayload = {
-    file_name:  fileObj.name,
-    file_type:  fileObj.type || 'application/octet-stream',
-    category:   type,
-    tags:       parsedTags,
-    file_size:  fileObj.size,
+    employee_id:   user.employee_id || user.username || 'EMP001',
+    manager_id:    user.manager_id  || 'MGR001',
+    document_type: type,
+    file_name:     fileObj.name,
+    file_type:     fileObj.type || 'application/octet-stream',
+    category:      type,
+    tags:          parsedTags,
+    file_size:     fileObj.size,
   };
 
   const metaResponse = await apiClient.post('/upload', metaPayload);
@@ -310,9 +316,6 @@ export const uploadDocument = async (fileObj, type, tags, progressCallback) => {
     responseData.file_id      ||
     responseData.id           ||
     `doc-${Date.now()}`;
-
-  const userStr = localStorage.getItem('vault_user');
-  const user    = userStr ? JSON.parse(userStr) : {};
 
   return {
     id:         docId,
