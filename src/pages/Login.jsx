@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, isAuthenticated, completeNewPassword } from '../services/auth';
 
@@ -7,7 +7,7 @@ import { login, isAuthenticated, completeNewPassword } from '../services/auth';
  * Authenticates user credentials using Amazon Cognito.
  * Handles the NEW_PASSWORD_REQUIRED challenge for first-login users.
  */
-export default function Login() {
+export default function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +51,9 @@ export default function Login() {
     setError('');
     
     try {
-      await login(username, password);
+      const userProfile = await login(username, password);
+      console.log('[LOGIN DIAGNOSTICS] Authenticated user profile:', userProfile);
+      if (onLoginSuccess) onLoginSuccess();
       navigate('/dashboard');
     } catch (err) {
       if (err.code === 'NEW_PASSWORD_REQUIRED') {

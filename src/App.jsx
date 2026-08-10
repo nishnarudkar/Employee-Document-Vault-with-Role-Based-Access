@@ -21,12 +21,12 @@ function ProtectedLayout({ children, currentUser, onReloadUser }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileShow, setIsMobileShow] = useState(false);
 
-  // Sync current user state on route mount if token is valid but state is unpopulated
+  // Sync current user state whenever ProtectedLayout mounts or onReloadUser changes
   useEffect(() => {
-    if (isAuthenticated() && !currentUser) {
+    if (isAuthenticated()) {
       onReloadUser();
     }
-  }, [currentUser, onReloadUser]);
+  }, [onReloadUser]);
 
   if (!isAuthenticated()) {
     return <Navigate to="/" replace />;
@@ -71,7 +71,9 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const handleReloadUser = () => {
-    setCurrentUser(getCurrentUser());
+    const user = getCurrentUser();
+    setCurrentUser(user);
+    console.log('[APP DIAGNOSTICS] Current User State Synced:', user);
   };
 
   // Sync user state on startup
@@ -94,7 +96,7 @@ function App() {
     <Router>
       <Routes>
         {/* Authentication Endpoint */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<Login onLoginSuccess={handleReloadUser} />} />
 
         {/* Protected Dashboard */}
         <Route 

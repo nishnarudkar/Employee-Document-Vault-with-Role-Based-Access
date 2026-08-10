@@ -22,18 +22,35 @@ const userPool = new CognitoUserPool(poolData);
 
 // ---------------------------------------------------------------------------
 // Group → Role mapping
-// Cognito groups: Employee | Manager | HR_Admin
-// Application roles used in the UI
+// Supports exact Cognito group names and common casing variations
 // ---------------------------------------------------------------------------
 const GROUP_TO_ROLE = {
   HR_Admin: 'HR Admin',
+  'HR/Admin': 'HR Admin',
+  'HR-Admin': 'HR Admin',
+  HRAdmin:  'HR Admin',
+  'HR Admin':'HR Admin',
+  hr_admin: 'HR Admin',
+  hradmin:  'HR Admin',
+  Admin:    'HR Admin',
+  admin:    'HR Admin',
+  HR:       'HR Admin',
+  hr:       'HR Admin',
+
   Manager:  'Manager',
+  manager:  'Manager',
+  MGR:      'Manager',
+  mgr:      'Manager',
+
   Employee: 'Employee',
+  employee: 'Employee',
+  EMP:      'Employee',
+  emp:      'Employee',
 };
 
 /**
  * Decodes the payload of a JWT (Base64url → JSON) without verifying
- * the signature.  Signature verification is handled server-side by
+ * the signature. Signature verification is handled server-side by
  * Cognito / API Gateway; we only need the claims here for UI decisions.
  *
  * @param {string} token  A dot-separated JWT string.
@@ -52,7 +69,7 @@ function decodeJwtPayload(token) {
 
 /**
  * Derives the application role from the Cognito groups claim embedded in
- * the ID token.  The first recognised group wins; falls back to 'Employee'.
+ * the ID token. The first recognised group wins; falls back to 'Employee'.
  *
  * @param {string} idToken  The raw Cognito ID token JWT.
  * @returns {string} Application role string.
@@ -83,7 +100,7 @@ function buildUserProfile(session, username) {
   const groups   = payload['cognito:groups'] || [];
   const role     = getRoleFromIdToken(idToken);
 
-  return {
+  const profile = {
     username,
     name:       payload.name        || payload['cognito:username'] || username,
     email:      payload.email       || '',
@@ -91,6 +108,17 @@ function buildUserProfile(session, username) {
     groups,
     department: payload['custom:department'] || '',
   };
+
+  // Diagnostic logging (safe: no tokens or passwords logged)
+  console.log('[AUTH DIAGNOSTICS] Cognito Token Decoded:', {
+    authenticatedUsername: username,
+    cognitoUsernameClaim: payload['cognito:username'],
+    email: payload.email,
+    'cognito:groups': groups,
+    calculatedRole: role,
+  });
+
+  return profile;
 }
 
 // ---------------------------------------------------------------------------
